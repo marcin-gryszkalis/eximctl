@@ -1,8 +1,13 @@
 #!/usr/bin/perl -w
-# $Id: eximctl 2623 2013-10-13 10:02:20Z mg $
+# https://github.com/marcin-gryszkalis/eximctl
+
 use strict;
+use warnings;
+use utf8;
 use POSIX qw(strftime);
 use Getopt::Std;
+
+my $REV = "0.2";
 
 my $EXIMPROC = 'exim-4';
 my $EXIMUSER = 'mailnull';
@@ -10,14 +15,11 @@ my $KILLALL = " -u '$EXIMUSER' -m '$EXIMPROC' ";
 my $FADEOUT_TIME = 30; # time for stopping without killing -9
 my $LOGDIR = "/var/log/exim";
 
-my $rev = '$Rev: 2623 $';
-$rev =~ s/.*?(\d+).*/v$1/;   
-
 sub help
 {
 print <<EOH
-eximctl $rev <mg\@fork.pl>
-   start                  -- start exim via rc.d
+eximctl $REV <mg\@fork.pl>
+   start                  -- start exim via service
    stop                   -- stop exim
    restart                -- stop + start
    status                 -- status
@@ -96,12 +98,12 @@ sub is_alive
 
 sub x_start
 {
-    print `/usr/local/etc/rc.d/exim start`;
+    print `service exim start`;
 }
 
 sub x_stop
 {
-    print `/usr/local/etc/rc.d/exim stop`;
+    print `service exim stop`;
     my $p = is_alive();
     my $t = 0;
     while ($p > 0 && $t < $FADEOUT_TIME)
@@ -131,7 +133,7 @@ sub x_restart
 
 sub x_status
 {
-    print `/usr/local/etc/rc.d/exim status`;
+    print `service exim status`;
 }
 
 sub x_what
