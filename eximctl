@@ -1,0 +1,329 @@
+#!/usr/bin/perl -w
+# $Id: eximctl 2623 2013-10-13 10:02:20Z mg $
+use strict;
+use POSIX qw(strftime);
+use Getopt::Std;
+
+my $EXIMPROC = 'exim-4';
+my $EXIMUSER = 'mailnull';
+my $KILLALL = " -u '$EXIMUSER' -m '$EXIMPROC' ";
+my $FADEOUT_TIME = 30; # time for stopping without killing -9
+my $LOGDIR = "/var/log/exim";
+
+my $rev = '$Rev: 2623 $';
+$rev =~ s/.*?(\d+).*/v$1/;   
+
+sub help
+{
+print <<EOH
+eximctl $rev <mg\@fork.pl>
+   start                  -- start exim via rc.d
+   stop                   -- stop exim
+   restart                -- stop + start
+   status                 -- status
+   what                   -- full status
+   kill                   -- kill all exim process
+   top                    -- exitop
+
+   config                 -- show config
+   configtest             -- test configuration syntax
+   reload                 -- reload config with SIGHUP
+   version                -- show exim version
+
+   mailq                  -- show the queue
+   queue                  -- show the queue, mailq alias
+   qsize                  -- show queue size
+   qstats                 -- queue statistics
+   qgrep regexp           -- grep queue (from field, brief format)
+   flush                  -- flush queue (or specified message)
+      -a            all messages (including frozen)
+      -m msgid      flush one specified message
+      -f regexp     messages where from matches regexp
+      -t regexp     messages where to matches regexp
+
+   log msgid              -- show log for message
+   head msgid             -- show message header
+   body msgid             -- show message body
+   contents msgid         -- show complete contents (header+body) of message
+
+   delete msgid|regexp    -- delete message from queue (no error sent)
+   fail msgid|regexp      -- fail message (bounce)
+   freeze msgid|regexp    -- freeze message
+   thaw msgid|regexp      -- thaw (unfreeze) message
+
+   routing email         -- view routing for email
+
+   note: regexps not implemented yet
+EOH
+;
+    exit;
+}
+
+sub process_mailq
+{
+    open(my $m, 'exim -bp|');
+    my $h;
+    my @to;
+    my $hid;
+    while (<$m>)
+    {
+        if (/^\s*\S+\s+\S+\s+(\S+)\s+<(\S*)>.*(frozen)?/)
+        {
+            $hid = $1;
+            $h->{$hid}->{from} = $2;
+            $h->{$hid}->{frozen} = 1 if $3;
+            @to = ();
+        }
+        
+        if (/^\s*(D)?\s+(\S+\@\S+)\s*$/)
+        {
+#            next if $1 eq 'D';
+            push(@to, $2);
+            $h->{$hid}->{to} = join(",",@to);
+        }
+    }
+
+    return $h;
+}
+
+sub is_alive
+{
+    my $p = `killall -SIGHUP -s $KILLALL 2>/dev/null |wc -l`;
+    chomp $p;
+    $p =~ s/\D//g;
+    return $p;
+}
+
+sub x_start
+{
+    print `/usr/local/etc/rc.d/exim start`;
+}
+
+sub x_stop
+{
+    print `/usr/local/etc/rc.d/exim stop`;
+    my $p = is_alive();
+    my $t = 0;
+    while ($p > 0 && $t < $FADEOUT_TIME)
+    {
+        sleep(1);
+        print "$p...";
+        $t++;
+        $p = is_alive();
+    }
+
+    if ($p)
+    {
+        print "terminating...";
+        x_kill();
+    }
+    else
+    {
+        print "stopped\n";
+    }
+}
+
+sub x_restart
+{
+    x_stop();
+    x_start();
+}
+
+sub x_status
+{
+    print `/usr/local/etc/rc.d/exim status`;
+}
+
+sub x_what
+{
+    print `exiwhat`;
+}
+
+
+sub x_kill
+{    
+    my $t = 0;
+    my $p = is_alive();
+    while ($p > 0 && $t < $FADEOUT_TIME)
+    {
+        sleep(1);
+        print "$p...";
+        `killall -SIGTERM $KILLALL`;
+        $t++;
+        $p = is_alive();
+    }
+
+    if ($p)
+    {
+        print "killing survivors...";
+        `killall -SIGKILL $KILLALL`;
+        sleep(3);
+        if (is_alive())
+        {
+            print "they're still alive\n";
+        }   
+        else
+        {
+            print "done\n";
+        }
+    }
+    else
+    {
+        print "stopped\n";
+    }
+}
+
+sub x_top
+{
+    my $mainlog = strftime "$LOGDIR/exim-main-%Y%m%d.log", localtime(time);
+    exec "~/conf/exim/exitop $mainlog";
+}
+
+sub x_config
+{
+    print `exim -bP`;
+}
+ 
+sub x_configtest
+{
+    my $a = `exim -bV`;
+    $a =~ m{(.*)Exim version};
+    $a = $1;
+    $a =~ s/\s+//g;
+    $a = "Syntax OK" if $a eq '';
+    print "$a\n";
+}
+
+sub x_reload
+{
+    `killall -SIGHUP -v -u '$EXIMUSER' -m '$EXIMPROC'`;
+    print "reloaded...\n";
+}
+
+sub x_version
+{
+    print `exim -bV`;
+}
+ 
+sub x_mailq
+{
+    print `exim -bp`;
+}
+ 
+sub x_queue
+{
+    return x_mailq();
+}
+
+sub x_qsize
+{
+    print `exim -bpc`;
+}
+
+sub x_qstats
+{
+    print `exim -bp | exiqsumm`;
+}
+
+sub x_qgrep
+{
+    my $r = shift;
+    print `exiqgrep -f '$r' -b`;
+}
+ 
+sub x_flush
+{
+    my $m = shift;
+    if (defined $m && $m ne '')
+    {
+        print `exim -M '$m'`;
+    }
+    else
+    {
+        my $pm = process_mailq();
+        for my $mid (keys %{$pm})
+        {
+            my $m = $pm->{$mid};
+            next if exists $m->{frozen};
+            print "delivery: $mid from <$m->{from}> to $m->{to}\n";
+            print `exim -M '$mid'`;
+        }
+#        print `exim -qf`;
+    }
+}
+ 
+sub x_flushall
+{
+    print `exim -qff`;
+}  
+sub x_log
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mvl '$m'`;
+}  
+ 
+sub x_head
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mvh '$m'`;
+}  
+ 
+sub x_body
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mvb '$m'`;
+}  
+
+sub x_contents
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mvc '$m'`;
+}  
+
+
+sub x_delete
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mrm '$m'`;
+}  
+ 
+sub x_fail
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mg '$m'`;
+}  
+ 
+sub x_freeze
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mf '$m'`;
+}  
+ 
+sub x_thaw
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -Mt '$m'`;
+}  
+ 
+sub x_routing
+{
+    my $m = shift;
+    help() unless $m;
+    print `exim -bt '$m'`;
+}  
+
+help() if ($#ARGV < 0);
+my $command = shift;
+
+my $ev = eval "x_$command(\@ARGV)";
+help() unless defined $ev;
+
+
