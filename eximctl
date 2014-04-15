@@ -1,6 +1,12 @@
 #!/usr/bin/perl -w
 # https://github.com/marcin-gryszkalis/eximctl
 
+# info:
+# http://www.exim.org/exim-html-current/doc/html/spec_html/ch-the_exim_command_line.html
+# http://www.exim.org/exim-html-current/doc/html/spec_html/ch-exim_utilities.html
+# http://bradthemad.org/tech/notes/exim_cheatsheet.php
+# http://www.gnode.net/exim-cheatsheet/
+
 use strict;
 use warnings;
 use utf8;
@@ -15,6 +21,8 @@ my $cfg = {
 'user' => 'mailnull',
 'fadeout_time' => 30,  # time for stopping without killing -9
 'logdir' => '/var/log/exim',
+'mainlog' => 'exim-main-%Y%m%d.log',
+'exitop' => '~/git/exitop/exitop'
 };
 
 my @conffiles = qw#/etc/eximctl.conf /usr/local/etc/eximctl.conf#;
@@ -30,18 +38,19 @@ for my $cf (@conffiles)
 }
 
 my $killall = " -u '$cfg->{eximuser}' -m '$cfg->{eximproc}' ";
+my $mainlog =  strftime("$cfg->{logdir}/$cfg->{mainlog}", localtime(time));
 
 sub help
 {
 print <<EOH
 eximctl $REV <mg\@fork.pl>
    start                  -- start exim via service
-   stop                   -- stop exim
+   stop                   -- stop exim via service and SIGKILL
    restart                -- stop + start
    status                 -- status
    what                   -- full status
    kill                   -- kill all exim process
-   top                    -- exitop
+   top                    -- exitop (using exim main log)
 
    config                 -- show config
    configtest             -- test configuration syntax
@@ -56,8 +65,10 @@ eximctl $REV <mg\@fork.pl>
    flush                  -- flush queue (or specified message)
       -a            all messages (including frozen)
       -m msgid      flush one specified message
-      -f regexp     messages where from matches regexp
-      -t regexp     messages where to matches regexp
+      -f regexp     messages where from matches regexp [NI]
+      -t regexp     messages where to matches regexp [NI]
+   flushall               -- flush all (including frozen) [NI]
+   flushlocal             -- flush only local messages [NI]
 
    log msgid              -- show log for message
    head msgid             -- show message header
@@ -71,7 +82,7 @@ eximctl $REV <mg\@fork.pl>
 
    routing email         -- view routing for email
 
-   note: regexps not implemented yet
+   [NI] -- not implemented yet
 EOH
 ;
     exit;
@@ -193,8 +204,7 @@ sub x_kill
 
 sub x_top
 {
-    my $mainlog = strftime "$cfg->{logdir}/exim-main-%Y%m%d.log", localtime(time);
-    exec "~/conf/exim/exitop $mainlog";
+    exec "$cfg->{exitop} $mainlog";
 }
 
 sub x_config
