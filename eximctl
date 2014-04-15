@@ -7,13 +7,29 @@ use utf8;
 use POSIX qw(strftime);
 use Getopt::Std;
 
-my $REV = "0.2";
+my $REV = "0.3";
 
-my $EXIMPROC = 'exim-4';
-my $EXIMUSER = 'mailnull';
-my $KILLALL = " -u '$EXIMUSER' -m '$EXIMPROC' ";
-my $FADEOUT_TIME = 30; # time for stopping without killing -9
-my $LOGDIR = "/var/log/exim";
+my $cfg = {
+# defaults:
+'eximproc' => 'exim-4',
+'user' => 'mailnull',
+'fadeout_time' => 30,  # time for stopping without killing -9
+'logdir' => '/var/log/exim',
+};
+
+my @conffiles = qw#/etc/eximctl.conf /usr/local/etc/eximctl.conf#;
+for my $cf (@conffiles)
+{
+    next unless -f $cf;
+    open(my $cff, $cf) or die "cannot read config ($cf): $!";
+    while (<$cff>)
+    {
+        next unless /^\s*(\S+?)\s*=\s*(.*?)\s*$/;
+        $cfg->{$1} = $2;
+    }
+}
+
+my $killall = " -u '$cfg->{eximuser}' -m '$cfg->{eximproc}' ";
 
 sub help
 {
@@ -90,7 +106,7 @@ sub process_mailq
 
 sub is_alive
 {
-    my $p = `killall -SIGHUP -s $KILLALL 2>/dev/null |wc -l`;
+    my $p = `killall -SIGHUP -s $killall 2>/dev/null |wc -l`;
     chomp $p;
     $p =~ s/\D//g;
     return $p;
@@ -106,7 +122,7 @@ sub x_stop
     print `service exim stop`;
     my $p = is_alive();
     my $t = 0;
-    while ($p > 0 && $t < $FADEOUT_TIME)
+    while ($p > 0 && $t < $cfg->{fadeout_time})
     {
         sleep(1);
         print "$p...";
@@ -146,11 +162,11 @@ sub x_kill
 {    
     my $t = 0;
     my $p = is_alive();
-    while ($p > 0 && $t < $FADEOUT_TIME)
+    while ($p > 0 && $t < $cfg->{fadeout_time})
     {
         sleep(1);
         print "$p...";
-        `killall -SIGTERM $KILLALL`;
+        `killall -SIGTERM $killall`;
         $t++;
         $p = is_alive();
     }
@@ -158,7 +174,7 @@ sub x_kill
     if ($p)
     {
         print "killing survivors...";
-        `killall -SIGKILL $KILLALL`;
+        `killall -SIGKILL $killall`;
         sleep(3);
         if (is_alive())
         {
@@ -177,7 +193,7 @@ sub x_kill
 
 sub x_top
 {
-    my $mainlog = strftime "$LOGDIR/exim-main-%Y%m%d.log", localtime(time);
+    my $mainlog = strftime "$cfg->{logdir}/exim-main-%Y%m%d.log", localtime(time);
     exec "~/conf/exim/exitop $mainlog";
 }
 
@@ -198,7 +214,7 @@ sub x_configtest
 
 sub x_reload
 {
-    `killall -SIGHUP -v -u '$EXIMUSER' -m '$EXIMPROC'`;
+    `killall -SIGHUP -v $killall`;
     print "reloaded...\n";
 }
 
