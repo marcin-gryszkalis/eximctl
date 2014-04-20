@@ -11,9 +11,8 @@ use strict;
 use warnings;
 use utf8;
 use POSIX qw(strftime);
-use Getopt::Std;
 
-my $REV = "0.3";
+my $REV = "0.4";
 
 my $cfg = {
 # defaults:
@@ -40,6 +39,8 @@ for my $cf (@conffiles)
 my $killall = " -u '$cfg->{eximuser}' -m '$cfg->{eximproc}' ";
 my $mainlog =  strftime("$cfg->{logdir}/$cfg->{mainlog}", localtime(time));
 
+my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6}-[a-zA-Z0-9]{2}';
+
 sub help
 {
 print <<EOH
@@ -53,66 +54,101 @@ eximctl $REV <mg\@fork.pl>
    top                    -- exitop (using exim main log)
 
    config                 -- show config
-   configtest             -- test configuration syntax
+   syntax                 -- test configuration syntax
    reload                 -- reload config with SIGHUP
    version                -- show exim version
 
    mailq                  -- show the queue
+   mailqq                 -- show the queue (brief format)
    queue                  -- show the queue, mailq alias
    qsize                  -- show queue size
    qstats                 -- queue statistics
-   qgrep regexp           -- grep queue (from field, brief format)
-   flush                  -- flush queue (or specified message)
-      -a            all messages (including frozen)
-      -m msgid      flush one specified message
-      -f regexp     messages where from matches regexp [NI]
-      -t regexp     messages where to matches regexp [NI]
-   flushall               -- flush all (including frozen) [NI]
-   flushlocal             -- flush only local messages [NI]
+   qgrep <msg spec>       -- grep queue (brief format)
 
-   log msgid              -- show log for message
-   head msgid             -- show message header
-   body msgid             -- show message body
-   contents msgid         -- show complete contents (header+body) of message
+   flush <msg spec>       -- flush queue
+   flushall               -- flush all (including frozen, exim -qff mode)
 
-   delete msgid|regexp    -- delete message from queue (no error sent)
-   fail msgid|regexp      -- fail message (bounce)
-   freeze msgid|regexp    -- freeze message
-   thaw msgid|regexp      -- thaw (unfreeze) message
+   log <msg spec>         -- show log for message
+   head <msg spec>        -- show message header
+   body <msg spec>        -- show message body
+   contents <msg spec>    -- show complete contents (header+body) of message
 
-   routing email         -- view routing for email
+   delete <msg spec>      -- delete message from queue (no error sent)
+   fail <msg spec>        -- fail message (bounce)
+   freeze <msg spec>      -- freeze message
+   thaw <msg spec>        -- thaw (unfreeze) message
 
-   [NI] -- not implemented yet
+   routing email          -- view routing for email
+
+    <msg spec> -- specification for message:
+     - msg id - message id, formatted as xxxxxx-xxxxxx-xx
+     - [from|to] regexp - regexp to be matched against sender (from, the default) or recipient (to)
+     - use explicit regexp to match all messages (eg. single dot would match any message)
+
 EOH
 ;
     exit;
 }
 
-sub process_mailq
+my $details;
+sub queue_by_message_spec
 {
-    open(my $m, 'exim -bp|');
-    my $h;
-    my @to;
-    my $hid;
-    while (<$m>)
+    my $spec = shift @ARGV;
+    my $subj = 'from';
+    my @ret;
+
+    help() unless defined $spec;
+
+    if ($spec =~ /^$remsgid/) # msg id
     {
-        if (/^\s*\S+\s+\S+\s+(\S+)\s+<(\S*)>.*(frozen)?/)
+        push(@ret, $spec);
+    }
+    elsif ($spec =~ /^(from|to)$/i)
+    {
+        $subj = $1;
+        $spec = shift @ARGV;
+
+        my $exqopt = '-b';
+
+        if ($spec eq 'from') 
         {
-            $hid = $1;
-            $h->{$hid}->{from} = $2;
-            $h->{$hid}->{frozen} = 1 if $3;
-            @to = ();
+            $exqopt = "-b -f '$subj'" 
         }
-        
-        if (/^\s*(D)?\s+(\S+\@\S+)\s*$/)
+        else # to
         {
-#            next if $1 eq 'D';
-            push(@to, $2);
-            $h->{$hid}->{to} = join(",",@to);
+            $exqopt = "-b -t '$subj'" 
         }
+
+        open(my $m, "exiqgrep $exqopt|");
+        while (<$m>)
+        {
+            
+            if (/^($remsgid)\s+From:\s+(<(\S+)>)\s+To:\s+(\S+)/)
+            {
+                my $mid = $1;
+                my $mfrom = $2;
+                my $mto = $3;
+
+                push(@ret, $mid);
+                $details->{$mid} = "$mid $mfrom -> $mto";
+            }
+            
+        }
+
     }
 
-    return $h;
+    return \@ret;
+}
+
+sub process_queue_with_option 
+{
+    my $opt = shift;
+    my $q = queue_by_message_spec();
+    for my $mid (@$q)
+    {
+        print $details->{$mid}, "\n";
+        print `exim $opt '$mid'`;
+    }
 }
 
 sub is_alive
@@ -212,7 +248,7 @@ sub x_config
     print `exim -bP`;
 }
  
-sub x_configtest
+sub x_syntax
 {
     my $a = `exim -bV`;
     $a =~ m{(.*)Exim version};
@@ -238,6 +274,11 @@ sub x_mailq
     print `exim -bp`;
 }
  
+sub x_mailqq
+{
+    print `exiqgrep -b`;
+}
+
 sub x_queue
 {
     return x_mailq();
@@ -258,87 +299,56 @@ sub x_qgrep
     my $r = shift;
     print `exiqgrep -f '$r' -b`;
 }
- 
+
 sub x_flush
 {
-    my $m = shift;
-    if (defined $m && $m ne '')
-    {
-        print `exim -M '$m'`;
-    }
-    else
-    {
-        my $pm = process_mailq();
-        for my $mid (keys %{$pm})
-        {
-            my $m = $pm->{$mid};
-            next if exists $m->{frozen};
-            print "delivery: $mid from <$m->{from}> to $m->{to}\n";
-            print `exim -M '$mid'`;
-        }
-#        print `exim -qf`;
-    }
+    process_queue_with_option('-M');
 }
  
 sub x_flushall
 {
     print `exim -qff`;
 }  
+
 sub x_log
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mvl '$m'`;
+    process_queue_with_option('-Mvl');
 }  
  
 sub x_head
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mvh '$m'`;
+    process_queue_with_option('-Mvl');
 }  
  
 sub x_body
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mvb '$m'`;
+    process_queue_with_option('-Mvb');
 }  
 
 sub x_contents
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mvc '$m'`;
+    process_queue_with_option('-Mvc');
 }  
 
 
 sub x_delete
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mrm '$m'`;
+    process_queue_with_option('-Mrm');
 }  
  
 sub x_fail
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mg '$m'`;
+    process_queue_with_option('-Mg');
 }  
  
 sub x_freeze
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mf '$m'`;
+    process_queue_with_option('-Mf');
 }  
  
 sub x_thaw
 {
-    my $m = shift;
-    help() unless $m;
-    print `exim -Mt '$m'`;
+    process_queue_with_option('-Mt');
 }  
  
 sub x_routing
@@ -351,7 +361,7 @@ sub x_routing
 help() if ($#ARGV < 0);
 my $command = shift;
 
-my $ev = eval "x_$command(\@ARGV)";
+my $ev = eval "x_$command()";
 help() unless defined $ev;
 
 
