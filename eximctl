@@ -10,6 +10,7 @@
 use strict;
 use warnings;
 use utf8;
+use Data::Dumper;
 use POSIX qw(strftime);
 
 my $REV = "0.4";
@@ -36,7 +37,7 @@ for my $cf (@conffiles)
     }
 }
 
-my $killall = " -u '$cfg->{eximuser}' -m '$cfg->{eximproc}' ";
+my $killall = " -u '$cfg->{user}' -m '$cfg->{eximproc}' ";
 my $mainlog =  strftime("$cfg->{logdir}/$cfg->{mainlog}", localtime(time));
 
 my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6}-[a-zA-Z0-9]{2}';
@@ -103,10 +104,13 @@ sub queue_by_message_spec
     {
         push(@ret, $spec);
     }
-    elsif ($spec =~ /^(from|to)$/i)
+    else
     {
-        $subj = $1;
-        $spec = shift @ARGV;
+        if ($spec =~ /^(from|to)$/i)
+        {
+            $subj = $1;
+            $spec = shift @ARGV;
+        }
 
         my $exqopt = '-b';
 
@@ -137,6 +141,7 @@ sub queue_by_message_spec
 
     }
 
+print Dumper \@ret;
     return \@ret;
 }
 
@@ -146,7 +151,7 @@ sub process_queue_with_option
     my $q = queue_by_message_spec();
     for my $mid (@$q)
     {
-        print $details->{$mid}, "\n";
+        print $details->{$mid} // $mid, "\n";
         print `exim $opt '$mid'`;
     }
 }
@@ -317,7 +322,7 @@ sub x_log
  
 sub x_head
 {
-    process_queue_with_option('-Mvl');
+    process_queue_with_option('-Mvh');
 }  
  
 sub x_body
