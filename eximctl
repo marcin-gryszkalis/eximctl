@@ -12,6 +12,7 @@ use warnings;
 use utf8;
 use Data::Dumper;
 use POSIX qw(strftime);
+use FindBin qw($RealBin);
 
 my $REV = "0.4";
 
@@ -25,7 +26,7 @@ my $cfg = {
 'exitop' => '~/git/exitop/exitop'
 };
 
-my @conffiles = qw#/etc/eximctl.conf /usr/local/etc/eximctl.conf#;
+my @conffiles = qw#/etc/eximctl.conf /usr/local/etc/eximctl.conf $RealBin/eximctl.conf#;
 for my $cf (@conffiles)
 {
     next unless -f $cf;
