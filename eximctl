@@ -361,7 +361,7 @@ sub x_thaw
  
 sub x_routing
 {
-    my $m = shift;
+    my $m = shift @ARGV;
     help("recipient for routing test unspecified") unless $m;
     print `exim -bt '$m'`;
 }  
