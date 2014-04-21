@@ -45,6 +45,9 @@ my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6}-[a-zA-Z0-9]{2}';
 
 sub help
 {
+my $msg = shift;
+print "ERROR: $msg\n" if defined $msg;
+
 print <<EOH
 eximctl $REV <mg\@fork.pl>
    start                  -- start exim via service
@@ -99,7 +102,7 @@ sub queue_by_message_spec
     my $subj = 'from';
     my @ret;
 
-    help() unless defined $spec;
+    help("undefined argument") unless defined $spec;
 
     if ($spec =~ /^$remsgid/) # msg id
     {
@@ -107,7 +110,7 @@ sub queue_by_message_spec
     }
     else
     {
-        if ($spec =~ /^(from|to)$/i)
+        if ($spec =~ m/^(from|to)$/i)
         {
             $subj = $1;
             $spec = shift @ARGV;
@@ -115,13 +118,13 @@ sub queue_by_message_spec
 
         my $exqopt = '-b';
 
-        if ($spec eq 'from') 
+        if ($subj eq 'from') 
         {
-            $exqopt = "-b -f '$subj'" 
+            $exqopt = "-b -f '$spec'" 
         }
         else # to
         {
-            $exqopt = "-b -t '$subj'" 
+            $exqopt = "-b -r '$spec'" 
         }
 
         open(my $m, "exiqgrep $exqopt|");
@@ -359,14 +362,13 @@ sub x_thaw
 sub x_routing
 {
     my $m = shift;
-    help() unless $m;
+    help("recipient for routing test unspecified") unless $m;
     print `exim -bt '$m'`;
 }  
 
 help() if ($#ARGV < 0);
 my $command = shift;
 
-my $ev = eval "x_$command()";
-help() unless defined $ev;
-
+eval "x_$command()";
+help("unknown function ($command)") if $@;
 
