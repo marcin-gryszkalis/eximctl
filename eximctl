@@ -134,8 +134,8 @@ sub queue_by_message_spec
             if (/^($remsgid)\s+From:\s+(<(\S+)>)\s+To:\s+(\S+)/)
             {
                 my $mid = $1;
-                my $mfrom = $2;
-                my $mto = $3;
+                my $mfrom = $3;
+                my $mto = $4;
 
                 push(@ret, $mid);
                 $details->{$mid} = "$mid $mfrom -> $mto";
@@ -155,7 +155,7 @@ sub process_queue_with_option
     for my $mid (@$q)
     {
         print $details->{$mid} // $mid, "\n";
-        print `exim $opt '$mid'`;
+        print `exim $opt '$mid'` if defined $opt;
     }
 }
 
@@ -284,7 +284,8 @@ sub x_mailq
  
 sub x_mailqq
 {
-    print `exiqgrep -b`;
+    unshift(@ARGV, '.');
+    process_queue_with_option();
 }
 
 sub x_queue
@@ -304,8 +305,7 @@ sub x_qstats
 
 sub x_qgrep
 {
-    my $r = shift;
-    print `exiqgrep -f '$r' -b`;
+    process_queue_with_option();
 }
 
 sub x_flush
