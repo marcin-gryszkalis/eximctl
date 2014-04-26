@@ -18,7 +18,7 @@ my $REV = "0.4";
 
 my $cfg = {
 # defaults:
-'eximproc' => 'exim-4',
+'eximproc' => 'exim',
 'user' => 'mailnull',
 'fadeout_time' => 30,  # time for stopping without killing -9
 'logdir' => '/var/log/exim',
@@ -38,7 +38,28 @@ for my $cf (@conffiles)
     }
 }
 
-my $killall = " -u '$cfg->{user}' -m '$cfg->{eximproc}' ";
+# tested on FreeBSD and Linux
+my $psexim_cmd = "ps -o pid,state,comm,user -U $cfg->{user}";
+sub psexim
+{
+#  PID STAT COMMAND     USER
+#40177 Ss   exim-4.82-0 mailnull
+#62968 Is   exim-4.82-0 mailnull
+    open(my $p, "-|", $psexim_cmd) or die "cannot run ps ($psexim_cmd): $!";
+    <$p>; # skip hdr
+    my @pids;
+    while (<$p>)
+    {
+        chomp;
+        s/^\s+//;
+        my @e = split/\s+/;
+        next unless $e[2] =~ /^$cfg->{eximproc}/;
+        push(@pids, $e[0]);
+    }
+    return \@pids;
+}
+
+
 my $mainlog =  strftime("$cfg->{logdir}/$cfg->{mainlog}", localtime(time));
 
 my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6}-[a-zA-Z0-9]{2}';
@@ -56,6 +77,7 @@ eximctl $REV <mg\@fork.pl>
    status                 -- status
    what                   -- full status
    kill                   -- kill all exim process
+   alive                  -- check if exim is alive (report via exitcode)
    top                    -- exitop (using exim main log)
 
    config                 -- show config
@@ -126,11 +148,11 @@ sub queue_by_message_spec
         {
             $exqopt = "-b -r '$spec'" 
         }
-
-        open(my $m, "exiqgrep $exqopt|");
+        
+        open(my $m, "-|", "exiqgrep $exqopt");
         while (<$m>)
         {
-            
+            chomp;
             if (/^($remsgid)\s+From:\s+(<(\S+)>)\s+To:\s+(\S+)/)
             {
                 my $mid = $1;
@@ -159,12 +181,22 @@ sub process_queue_with_option
     }
 }
 
+# return number of exim processes
 sub is_alive
 {
-    my $p = `killall -SIGHUP -s $killall 2>/dev/null |wc -l`;
-    chomp $p;
-    $p =~ s/\D//g;
-    return $p;
+    my @pids = @{psexim()};
+    return scalar @pids;
+}
+
+sub is_in_path
+{
+    my $bin = shift;
+    for my $p (split(/:/, $ENV{PATH}))
+    {
+        return 1 if -x "$p/$bin";
+    }
+    
+    return 0;
 }
 
 sub x_start
@@ -187,7 +219,6 @@ sub x_stop
 
     if ($p)
     {
-        print "terminating...";
         x_kill();
     }
     else
@@ -212,24 +243,29 @@ sub x_what
     print `exiwhat`;
 }
 
+sub x_alive
+{
+    exit(is_alive() ? 0 : 1);
+}
 
 sub x_kill
 {    
     my $t = 0;
     my $p = is_alive();
+    print "terminating exim processes...";
     while ($p > 0 && $t < $cfg->{fadeout_time})
     {
         sleep(1);
         print "$p...";
-        `killall -SIGTERM $killall`;
+        kill('SIGTERM', psexim());
         $t++;
         $p = is_alive();
     }
 
     if ($p)
     {
-        print "killing survivors...";
-        `killall -SIGKILL $killall`;
+        print "killing remaining exim processes...";
+        kill('SIGKILL', psexim());
         sleep(3);
         if (is_alive())
         {
@@ -237,18 +273,19 @@ sub x_kill
         }   
         else
         {
-            print "done\n";
+            print "killed\n";
         }
     }
     else
     {
-        print "stopped\n";
+        print "terminated\n";
     }
 }
 
 sub x_top
 {
-    exec "$cfg->{exitop} $mainlog";
+    my $exitop_bin = is_in_path('exitop') ? 'exitop' : $cfg->{exitop};
+    exec "$exitop_bin $mainlog";
 }
 
 sub x_config
@@ -268,7 +305,7 @@ sub x_syntax
 
 sub x_reload
 {
-    `killall -SIGHUP -v $killall`;
+    kill('SIGHUP', psexim());
     print "reloaded...\n";
 }
 
@@ -284,7 +321,8 @@ sub x_mailq
  
 sub x_mailqq
 {
-    unshift(@ARGV, '.');
+    my $arg = shift @ARGV;
+    unshift(@ARGV, $arg // '.');
     process_queue_with_option();
 }
 
