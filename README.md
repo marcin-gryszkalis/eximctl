@@ -79,7 +79,7 @@ Following external tools are required:
  * exim binary (tested with modern exim 4.x)
  * scripts installed with exim (*exiqgrep*, *exiwhat* etc.)
  * *top* command uses *exitop* script, available at https://github.com/mcnewton/exitop . In case *exitop* is not found in $PATH there is additional configuration option to specify explicit path.
- * *killall* tool (tested with FreeBSD version, at the moment it **WILL NOT WORK** with Linux-psmisc version)
+ * *ps* tool (any POSIX compliant version should do but tested only with FreeBSD 9+ base-system version and Linux procps-ng v.3)
  * */sbin/service* to allow exim daemon management
 
 ## author
