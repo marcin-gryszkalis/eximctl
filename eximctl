@@ -14,7 +14,7 @@ use Data::Dumper;
 use POSIX qw(strftime);
 use FindBin qw($RealBin);
 
-my $REV = "0.4";
+my $REV = "0.9";
 
 my $cfg = {
 # defaults:
