@@ -33,6 +33,7 @@ Message 1WdGuK-0002pW-Bw is now frozen
    what                   -- full status
    kill                   -- kill all exim process
    top                    -- exitop (using exim main log)
+   alive                  -- check if exim is alive (report via exitcode)
 
    config                 -- show config
    syntax                 -- test configuration syntax
