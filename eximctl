@@ -60,8 +60,6 @@ sub psexim
 }
 
 
-my $mainlog =  strftime("$cfg->{logdir}/$cfg->{mainlog}", localtime(time));
-
 my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6}-[a-zA-Z0-9]{2}';
 
 sub help
@@ -149,7 +147,7 @@ sub queue_by_message_spec
             $exqopt = "-b -r '$spec'" 
         }
         
-        open(my $m, "-|", "exiqgrep $exqopt");
+        open(my $m, "-|", "exiqgrep $exqopt") or die "cannot run exiqgrep (exiqgrep $exqopt): $!";
         while (<$m>)
         {
             chomp;
@@ -285,6 +283,10 @@ sub x_kill
 sub x_top
 {
     my $exitop_bin = is_in_path('exitop') ? 'exitop' : $cfg->{exitop};
+
+    my $mainlog =  strftime("$cfg->{logdir}/$cfg->{mainlog}", localtime(time));
+    die "cannot find main exim log ($mainlog)" unless -f $mainlog;
+
     exec "$exitop_bin $mainlog";
 }
 
