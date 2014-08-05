@@ -14,7 +14,7 @@ use Data::Dumper;
 use POSIX qw(strftime);
 use FindBin qw($RealBin);
 
-my $REV = "0.9";
+my $REV = "0.10";
 
 my $cfg = {
 # defaults:
@@ -70,12 +70,13 @@ print "ERROR: $msg\n" if defined $msg;
 print <<EOH
 eximctl $REV <mg\@fork.pl>
    start                  -- start exim via service
-   stop                   -- stop exim via service and SIGKILL
+   stop                   -- stop exim via service and SIGTERM + SIGKILL
    restart                -- stop + start
    status                 -- status
    what                   -- full status
    kill                   -- kill all exim process
    alive                  -- check if exim is alive (report via exitcode)
+   pids                   -- list pids of exim processes
    top                    -- exitop (using exim main log)
 
    config                 -- show config
@@ -186,6 +187,11 @@ sub is_alive
     return scalar @pids;
 }
 
+sub x_pids
+{
+    print join("\n", @{psexim()})."\n";
+}
+
 sub is_in_path
 {
     my $bin = shift;
@@ -217,6 +223,7 @@ sub x_stop
 
     if ($p)
     {
+        print "\n";
         x_kill();
     }
     else
@@ -255,15 +262,15 @@ sub x_kill
     {
         sleep(1);
         print "$p...";
-        kill('SIGTERM', psexim());
+        kill('SIGTERM', @{psexim()});
         $t++;
         $p = is_alive();
     }
-
+    
     if ($p)
     {
-        print "killing remaining exim processes...";
-        kill('SIGKILL', psexim());
+        print "\nkilling remaining exim processes...";
+        kill('SIGKILL', @{psexim()});
         sleep(3);
         if (is_alive())
         {
