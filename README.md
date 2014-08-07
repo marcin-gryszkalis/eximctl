@@ -26,14 +26,15 @@ Message 1WdGuK-0002pW-Bw is now frozen
 
 ## options
 ```
-   start                  -- start exim via *service*
-   stop                   -- stop exim via service and SIGKILL
+   start                  -- start exim via service
+   stop                   -- stop exim via service and SIGTERM + SIGKILL
    restart                -- stop + start
    status                 -- status
    what                   -- full status
    kill                   -- kill all exim process
-   top                    -- exitop (using exim main log)
    alive                  -- check if exim is alive (report via exitcode)
+   pids                   -- list pids of exim processes
+   top                    -- exitop (using exim main log)
 
    config                 -- show config
    syntax                 -- test configuration syntax
