@@ -413,9 +413,13 @@ sub x_routing
     print `exim -bt '$m'`;
 }  
 
-help() if ($#ARGV < 0);
-my $command = shift;
 
-eval "x_$command()";
-help("unknown function ($command)") if $@;
+help() if $#ARGV < 0;
+my $command = shift;
+my $xcmd = "x_$command";
+
+help("unknown function ($command)") unless exists &$xcmd;
+
+no strict 'refs';
+&$xcmd;
 
