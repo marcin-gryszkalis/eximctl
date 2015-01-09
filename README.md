@@ -69,7 +69,7 @@ Message 1WdGuK-0002pW-Bw is now frozen
      - use explicit regexp to match all messages (eg. single dot would match any message)
 ```
 ## configuration file
-*eximctl* looks for **eximctl.conf** in standard locations (*/etc/*, */usr/local/etc* and direcotry where eximctl script is stored -- in this particular order). *eximctl* reads config files from all the locations. Settings are described in default config file. In case no config file exists eximctl uses built-in defaults (same as in the default config file).
+*eximctl* looks for **eximctl.conf** in standard locations (*/etc/*, */usr/local/etc* and directory where eximctl script is stored -- in this particular order). *eximctl* reads config files from all the locations. Settings are described in default config file. In case no config file exists eximctl uses built-in defaults (same as in the default config file).
 
 ## dependencies
 
