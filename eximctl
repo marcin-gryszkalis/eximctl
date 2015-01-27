@@ -314,7 +314,7 @@ sub x_syntax
 
 sub x_reload
 {
-    kill('SIGHUP', psexim());
+    kill('SIGHUP', @{psexim()});
     print "reloaded...\n";
 }
 
