@@ -152,14 +152,14 @@ sub queue_by_message_spec
         while (<$m>)
         {
             chomp;
-            if (/^($remsgid)\s+From:\s+(<(\S+)>)\s+To:\s+(\S+)/)
+            if (/^($remsgid)\s+From:\s+(<(\S*)>)\s+To:\s+(\S*)/)
             {
                 my $mid = $1;
                 my $mfrom = $3;
                 my $mto = $4;
 
                 push(@ret, $mid);
-                $details->{$mid} = "$mid $mfrom -> $mto";
+                $details->{$mid} = "$mid <$mfrom> -> <$mto>";
             }
             
         }
