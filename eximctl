@@ -14,7 +14,7 @@ use Data::Dumper;
 use POSIX qw(strftime);
 use FindBin qw($RealBin);
 
-my $REV = "0.11";
+my $REV = "0.12";
 
 my $cfg = {
 # defaults:
@@ -79,10 +79,27 @@ eximctl $REV <mg\@fork.pl>
    pids                   -- list pids of exim processes
    top                    -- exitop (using exim main log)
 
-   config                 -- show config
    syntax                 -- test configuration syntax
    reload                 -- reload config with SIGHUP
    version                -- show exim version
+
+   config [options]       -- show config, possible options:
+                                (none) - main config values
+                                config - full active config
+                                config_file - path of used config file
+                                log_file_path
+                                pid_file_path
+                                +named_list - contents of list
+                                router_list
+                                router 'name-of-router'
+                                transport_list
+                                transport 'name-of-transport'
+                                authenticator_list
+                                authenticator 'name-of-authenticator'
+                                environment_list - env variables w/o values
+                                environment - env variables with values
+                                macro_list
+                                macros
 
    mailq                  -- show the queue
    mailqq                 -- show the queue (brief format)
@@ -299,7 +316,9 @@ sub x_top
 
 sub x_config
 {
-    print `exim -bP`;
+    my $opts = join " ", @ARGV;
+    $opts =~ s/environment_list/-n environment/;
+    print `exim -bP $opts`;
 }
  
 sub x_syntax

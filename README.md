@@ -36,10 +36,27 @@ Message 1WdGuK-0002pW-Bw is now frozen
    pids                   -- list pids of exim processes
    top                    -- exitop (using exim main log)
 
-   config                 -- show config
    syntax                 -- test configuration syntax
    reload                 -- reload config with SIGHUP
    version                -- show exim version
+
+   config [options]       -- show config, possible options:
+                                (none) - main config values
+                                config - full active config
+                                config_file - path of used config file
+                                log_file_path
+                                pid_file_path
+                                +named_list - contents of list
+                                router_list
+                                router 'name-of-router'
+                                transport_list
+                                transport 'name-of-transport'
+                                authenticator_list
+                                authenticator 'name-of-authenticator'
+                                environment_list - env variables w/o values
+                                environment - env variables with values
+                                macro_list
+                                macros
 
    mailq                  -- show the queue
    mailqq                 -- show the queue (brief format)
@@ -86,5 +103,3 @@ Following external tools are required:
 ## author
 
 Marcin Gryszkalis <mg@fork.pl>
-
-
