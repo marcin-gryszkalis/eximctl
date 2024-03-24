@@ -59,8 +59,7 @@ sub psexim
     return \@pids;
 }
 
-
-my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6}-[a-zA-Z0-9]{2}';
+my $remsgid = '[a-zA-Z0-9]{6}-[a-zA-Z0-9]{6,12}-[a-zA-Z0-9]{2,4}';
 
 sub help
 {
@@ -317,7 +316,8 @@ sub x_top
 sub x_config
 {
     my $opts = join " ", @ARGV;
-    $opts =~ s/environment_list/-n environment/;
+    $opts =~ s/^full/config/; # cause 'eximctl config config' looks strange
+    $opts =~ s/environment_list/-n environment/;    
     print `exim -bP $opts`;
 }
  
