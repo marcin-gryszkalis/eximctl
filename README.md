@@ -1,7 +1,7 @@
 eximctl
 =======
 
-**exim control tool**. Allows to perform administrative tasks using friendly interface. Probably useful for those who cannot remember all these *sendmail*-like switches. 
+**exim control tool**. Allows to perform administrative tasks using friendly interface. Probably useful for those who cannot remember all these *sendmail*-like switches.
 
 ## synopsis
 ```
@@ -77,6 +77,7 @@ Message 1WdGuK-0002pW-Bw is now frozen
    fail <msg spec>        -- fail message (bounce)
    freeze <msg spec>      -- freeze message
    thaw <msg spec>        -- thaw (unfreeze) message
+   crush <msg spec>       -- delete frozen (only) messages from queue (no error sent)
 
    routing email          -- view routing for email
 

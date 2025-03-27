@@ -119,6 +119,7 @@ eximctl $REV <mg\@fork.pl>
    fail <msg spec>        -- fail message (bounce)
    freeze <msg spec>      -- freeze message
    thaw <msg spec>        -- thaw (unfreeze) message
+   crush <msg spec>       -- delete frozen (only) messages from queue (no error sent)
 
    routing email          -- view routing for email
 
@@ -132,6 +133,7 @@ EOH
     exit;
 }
 
+my $frozen_only = 0;
 my $details;
 sub queue_by_message_spec
 {
@@ -164,6 +166,8 @@ sub queue_by_message_spec
             $exqopt = "-b -r '$spec'" 
         }
         
+        $exqopt .= " -z" if $frozen_only;
+
         open(my $m, "-|", "exiqgrep $exqopt") or die "cannot run exiqgrep (exiqgrep $exqopt): $!";
         while (<$m>)
         {
@@ -410,6 +414,12 @@ sub x_delete
     process_queue_with_option('-Mrm');
 }  
  
+sub x_crush
+{
+    $frozen_only = 1;
+    process_queue_with_option('-Mrm');
+}
+
 sub x_fail
 {
     process_queue_with_option('-Mg');
