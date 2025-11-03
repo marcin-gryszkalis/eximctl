@@ -1,0 +1,87 @@
+#compdef eximctl
+
+# ZSH completion for eximctl
+# Place this file in your $fpath (e.g., /usr/local/share/zsh/site-functions/_eximctl)
+
+_eximctl() {
+  local context state state_descr line
+  typeset -A opt_args
+
+  local -a commands
+  commands=(
+    'start:Start exim via service'
+    'stop:Stop exim via service and SIGTERM + SIGKILL'
+    'restart:Stop and start exim'
+    'status:Show status'
+    'what:Show full status'
+    'kill:Kill all exim processes'
+    'alive:Check if exim is alive (report via exit code)'
+    'pids:List PIDs of exim processes'
+    'top:Run exitop (using exim main log)'
+    'syntax:Test configuration syntax'
+    'reload:Reload config with SIGHUP'
+    'version:Show exim version'
+    'config:Show configuration'
+    'mailq:Show the queue'
+    'mailqq:Show the queue (brief format)'
+    'queue:Show the queue (mailq alias)'
+    'qsize:Show queue size'
+    'qstats:Show queue statistics'
+    'qgrep:Grep queue (brief format)'
+    'flush:Flush queue'
+    'flushall:Flush all (including frozen messages)'
+    'log:Show log for message'
+    'head:Show message header'
+    'body:Show message body'
+    'contents:Show complete contents (header+body) of message'
+    'delete:Delete message from queue (no error sent)'
+    'fail:Fail message (bounce)'
+    'freeze:Freeze message'
+    'thaw:Thaw (unfreeze) message'
+    'crush:Delete frozen messages from queue (no error sent)'
+    'routing:View routing for email address'
+  )
+
+  local -a config_options
+  config_options=(
+    'config:Full active config'
+    'config_file:Path of used config file'
+    'log_file_path:Log file path'
+    'pid_file_path:PID file path'
+    'router_list:List of routers'
+    'transport_list:List of transports'
+    'authenticator_list:List of authenticators'
+    'environment_list:Environment variables without values'
+    'environment:Environment variables with values'
+    'macro_list:List of macros'
+    'macros:Macro definitions'
+  )
+
+  _arguments -C \
+    '1: :->command' \
+    '*:: :->args'
+
+  case $state in
+    command)
+      _describe -t commands 'eximctl command' commands
+      ;;
+    args)
+      case $words[1] in
+        config)
+          _describe -t config-options 'config option' config_options
+          ;;
+        qgrep|flush|log|head|body|contents|delete|fail|freeze|thaw|crush|mailqq)
+          _message 'message spec: msg-id or [from|to] regexp'
+          ;;
+        routing)
+          _message 'email address'
+          ;;
+        start|stop|restart|status|what|kill|alive|pids|top|syntax|reload|version|mailq|queue|qsize|qstats|flushall)
+          # These commands take no arguments
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_eximctl "$@"
