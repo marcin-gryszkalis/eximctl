@@ -57,6 +57,12 @@ _eximctl() {
     'macros:Macro definitions'
   )
 
+  local -a msg_spec_options
+  msg_spec_options=(
+    'from:Match sender address (followed by regexp)'
+    'to:Match recipient address (followed by regexp)'
+  )
+
   _arguments -C \
     '1: :->command' \
     '*:: :->args'
@@ -71,10 +77,15 @@ _eximctl() {
           _describe -t config-options 'config option' config_options
           ;;
         qgrep|flush|log|head|body|contents|delete|fail|freeze|thaw|crush|mailqq)
-          _message 'message spec: msg-id or [from|to] regexp'
+          if [[ $CURRENT -eq 2 ]]; then
+            _describe -t msg-spec 'message specification' msg_spec_options
+            _message -r 'or enter message-id or regexp'
+          else
+            _message 'regexp pattern'
+          fi
           ;;
         routing)
-          _message 'email address'
+          _message -r 'email address to test routing'
           ;;
         start|stop|restart|status|what|kill|alive|pids|top|syntax|reload|version|mailq|queue|qsize|qstats|flushall)
           # These commands take no arguments
