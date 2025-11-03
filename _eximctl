@@ -78,14 +78,15 @@ _eximctl() {
           ;;
         qgrep|flush|log|head|body|contents|delete|fail|freeze|thaw|crush|mailqq)
           if [[ $CURRENT -eq 2 ]]; then
-            _describe -t msg-spec 'message specification' msg_spec_options
-            _message -r 'or enter message-id or regexp'
+            _alternative \
+              'keywords:keyword:(from to)' \
+              'patterns:pattern:_guard "^-*" "message-id or regexp pattern"'
           else
-            _message 'regexp pattern'
+            compadd -x 'regexp pattern to match'
           fi
           ;;
         routing)
-          _message -r 'email address to test routing'
+          compadd -x 'email address to test routing'
           ;;
         start|stop|restart|status|what|kill|alive|pids|top|syntax|reload|version|mailq|queue|qsize|qstats|flushall)
           # These commands take no arguments
